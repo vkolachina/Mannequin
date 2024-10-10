@@ -8,17 +8,16 @@ body:
       value: |
         Use this template to onboard users to repositories and organizations.
         
-        After creating the issue, add a comment with the onboarding commands.
+        After creating the issue, add a comment with the onboarding command:
         
-        For repositories:
-        /onboard repos data/users.csv
+        /onboard data/users.csv
         
-        For organizations:
-        /onboard orgs data/users.csv
+        Ensure the CSV file exists in the repository with the correct format:
+        mannequin-user,mannequin-id,target-user,role,target
         
-        Make sure the CSV file exists in the repository before running the command.
+        Where 'target' is either an organization name or 'owner/repo' for repositories.
         
-        Permissions for repos: pull, push, admin, contributor
+        Permissions for repos: pull, push, admin
         Roles for orgs: admin, direct_member, billing_manager
   - type: input
     id: requester
