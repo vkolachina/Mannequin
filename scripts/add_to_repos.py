@@ -24,7 +24,7 @@ def validate_input(username, repo, permission):
     valid_permissions = ['pull', 'push', 'admin']
     if not username or not repo or not permission:
         raise ValueError("Username, repository, and permission must be provided")
-    if permission not in valid_permissions:
+    if permission.lower() not in valid_permissions:
         raise ValueError(f"Invalid permission. Must be one of {valid_permissions}")
 
 def make_request(url, method='get', data=None, max_retries=3):
@@ -50,18 +50,20 @@ def make_request(url, method='get', data=None, max_retries=3):
             return response
         except requests.RequestException as e:
             if attempt == max_retries - 1:
+                logging.error(f"Request failed after {max_retries} attempts. Error: {str(e)}")
                 raise
             logging.warning(f"Request failed. Retrying... (Attempt {attempt + 1}/{max_retries})")
             time.sleep(2 ** attempt)  # Exponential backoff
 
 def add_user_to_repo(username, repo, permission):
     url = f"{GITHUB_API_URL}/repos/{repo}/collaborators/{username}"
-    data = {"permission": permission}
+    data = {"permission": permission.lower()}
     try:
         response = make_request(url, method='put', data=data)
         logging.info(f"Successfully added {username} to {repo} with {permission} permission")
     except requests.RequestException as e:
         logging.error(f"Failed to add {username} to {repo}. Error: {str(e)}")
+        raise
 
 def process_csv(csv_file):
     with open(csv_file, 'r') as file:
