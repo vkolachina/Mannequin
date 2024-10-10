@@ -25,7 +25,7 @@ jobs:
     - name: Extract CSV file name
       id: extract_csv
       run: |
-        CSV_FILE=$(echo "${{ github.event.comment.body }}" | grep -oP '/onboard \K[^ ]+')
+        CSV_FILE=$(echo "${{ github.event.comment.body }}" | grep -oP '/onboard \K\S+')
         echo "::set-output name=csv_file::$CSV_FILE"
 
     - name: Process organization additions

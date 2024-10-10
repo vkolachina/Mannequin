@@ -10,9 +10,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 GITHUB_API_URL = "https://api.github.com"
 TOKEN = os.getenv('PERSONAL_ACCESS_TOKEN')
+CSV_FILE = os.getenv('CSV_FILE')
 
 if not TOKEN:
     logging.error("PERSONAL_ACCESS_TOKEN not found. Please set the PERSONAL_ACCESS_TOKEN environment variable.")
+    sys.exit(1)
+
+if not CSV_FILE:
+    logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
     sys.exit(1)
 
 def validate_input(username, org, role):
@@ -71,27 +76,26 @@ def get_user_id(username):
         return None
 
 def process_csv(csv_file):
-    with open(csv_file, 'r') as file:
-        csv_reader = csv.reader(file)
-        next(csv_reader)  # Skip header row
-        for row in csv_reader:
-            if len(row) == 4:
-                mannequin_user, mannequin_id, target_user, role = row
-                try:
-                    validate_input(target_user, os.getenv('GITHUB_ORG'), role)
-                    add_user_to_org(target_user, os.getenv('GITHUB_ORG'), role)
-                except ValueError as e:
-                    logging.error(f"Invalid input: {row}. Error: {str(e)}")
-                except Exception as e:
-                    logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
-
-def main():
-    csv_file = os.getenv('CSV_FILE')
-    if not csv_file:
-        logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
+    try:
+        with open(csv_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)  # Skip header row
+            for row in csv_reader:
+                if len(row) == 4:
+                    mannequin_user, mannequin_id, target_user, role = row
+                    try:
+                        validate_input(target_user, os.getenv('GITHUB_ORG'), role)
+                        add_user_to_org(target_user, os.getenv('GITHUB_ORG'), role)
+                    except ValueError as e:
+                        logging.error(f"Invalid input: {row}. Error: {str(e)}")
+                    except Exception as e:
+                        logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
+    except FileNotFoundError:
+        logging.error(f"CSV file not found: {csv_file}")
         sys.exit(1)
 
-    process_csv(csv_file)
+def main():
+    process_csv(CSV_FILE)
 
 if __name__ == "__main__":
     main()
