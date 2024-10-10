@@ -5,7 +5,7 @@ import logging
 import time
 import csv
 
-# Set up logging
+# Set up logging is the same as the IssueOps script
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 GITHUB_API_URL = "https://api.github.com"
