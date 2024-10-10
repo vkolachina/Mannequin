@@ -11,12 +11,12 @@ body:
         After creating the issue, add a comment with the onboarding commands.
         
         For repositories:
-        /onboard repos
+        /onboard repos data/users.csv
         
         For organizations:
-        /onboard orgs
+        /onboard orgs data/users.csv
         
-        The CSV file (data/users.csv) should be updated with the user information before running the commands.
+        The CSV file should be updated with the user information before running the commands.
   - type: input
     id: requester
     attributes:

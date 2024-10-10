@@ -9,14 +9,14 @@ import csv
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 GITHUB_API_URL = "https://api.github.com"
-TOKEN = os.getenv('GITHUB_TOKEN')
+TOKEN = os.getenv('PERSONAL_ACCESS_TOKEN')
 
 if not TOKEN:
-    logging.error("GITHUB_TOKEN not found. Please set the GITHUB_TOKEN environment variable.")
+    logging.error("PERSONAL_ACCESS_TOKEN not found. Please set the PERSONAL_ACCESS_TOKEN environment variable.")
     sys.exit(1)
 
 def validate_input(username, org, role):
-    valid_roles = ['admin', 'contributor', 'member']
+    valid_roles = ['admin', 'direct_member', 'billing_manager']
     if not username or not org or not role:
         raise ValueError("Username, organization, and role must be provided")
     if role not in valid_roles:
