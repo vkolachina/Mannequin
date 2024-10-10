@@ -21,10 +21,10 @@ if not CSV_FILE:
     sys.exit(1)
 
 def validate_input(username, org, role):
-    valid_roles = ['admin', 'member', 'contributor']
+    valid_roles = ['admin', 'direct_member', 'billing_manager']
     if not username or not org or not role:
         raise ValueError("Username, organization, and role must be provided")
-    if role not in valid_roles:
+    if role.lower() not in valid_roles:
         raise ValueError(f"Invalid role. Must be one of {valid_roles}")
 
 def make_request(url, method='get', data=None, max_retries=3):
@@ -50,6 +50,7 @@ def make_request(url, method='get', data=None, max_retries=3):
             return response
         except requests.RequestException as e:
             if attempt == max_retries - 1:
+                logging.error(f"Request failed after {max_retries} attempts. Error: {str(e)}")
                 raise
             logging.warning(f"Request failed. Retrying... (Attempt {attempt + 1}/{max_retries})")
             time.sleep(2 ** attempt)  # Exponential backoff
@@ -58,13 +59,14 @@ def add_user_to_org(username, org, role):
     url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
     data = {
         "invitee_id": get_user_id(username),
-        "role": role
+        "role": role.lower()
     }
     try:
         response = make_request(url, method='post', data=data)
         logging.info(f"Successfully invited {username} to {org} with {role} role")
     except requests.RequestException as e:
         logging.error(f"Failed to invite {username} to {org}. Error: {str(e)}")
+        raise
 
 def get_user_id(username):
     url = f"{GITHUB_API_URL}/users/{username}"
@@ -73,7 +75,7 @@ def get_user_id(username):
         return response.json()['id']
     except requests.RequestException as e:
         logging.error(f"Failed to get user ID for {username}. Error: {str(e)}")
-        return None
+        raise
 
 def process_csv(csv_file):
     with open(csv_file, 'r') as file:
