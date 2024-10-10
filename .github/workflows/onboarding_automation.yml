@@ -25,14 +25,14 @@ jobs:
     - name: Extract CSV file name
       id: extract_csv
       run: |
-        CSV_FILE=$(echo "${{ github.event.comment.body }}" | grep -oP '/onboard \K\S+')
-        echo "::set-output name=csv_file::$CSV_FILE"
+        CSV_FILE=$(echo "${{ github.event.comment.body }}" | grep -oP '/onboard \S+ \K\S+')
+        echo "csv_file=$CSV_FILE" >> $GITHUB_OUTPUT
 
     - name: Process organization additions
       if: contains(github.event.comment.body, '/onboard orgs')
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        CSV_FILE: ${{ steps.extract_csv.outputs.csv_file }}
+        CSV_FILE: ${{ github.workspace }}/${{ steps.extract_csv.outputs.csv_file }}
         GITHUB_ORG: ${{ github.repository_owner }}
       run: |
         python scripts/add_to_orgs.py
@@ -41,7 +41,7 @@ jobs:
       if: contains(github.event.comment.body, '/onboard repos')
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        CSV_FILE: ${{ steps.extract_csv.outputs.csv_file }}
+        CSV_FILE: ${{ github.workspace }}/${{ steps.extract_csv.outputs.csv_file }}
         GITHUB_REPO: ${{ github.repository }}
       run: |
         python scripts/add_to_repos.py

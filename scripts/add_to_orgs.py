@@ -20,6 +20,8 @@ if not CSV_FILE:
     logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
     sys.exit(1)
 
+logging.info(f"CSV file path: {CSV_FILE}")
+
 def validate_input(username, org, role):
     valid_roles = ['admin', 'direct_member', 'billing_manager']
     if not username or not org or not role:
@@ -75,9 +77,9 @@ def get_user_id(username):
         logging.error(f"Failed to get user ID for {username}. Error: {str(e)}")
         return None
 
-def process_csv(csv_file):
+def main():
     try:
-        with open(csv_file, 'r') as file:
+        with open(CSV_FILE, 'r') as file:
             csv_reader = csv.reader(file)
             next(csv_reader)  # Skip header row
             for row in csv_reader:
@@ -91,11 +93,8 @@ def process_csv(csv_file):
                     except Exception as e:
                         logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
     except FileNotFoundError:
-        logging.error(f"CSV file not found: {csv_file}")
+        logging.error(f"CSV file not found: {CSV_FILE}")
         sys.exit(1)
-
-def main():
-    process_csv(CSV_FILE)
 
 if __name__ == "__main__":
     main()
