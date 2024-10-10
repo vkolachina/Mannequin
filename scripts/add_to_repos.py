@@ -20,6 +20,8 @@ if not CSV_FILE:
     logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
     sys.exit(1)
 
+logging.info(f"CSV file path: {CSV_FILE}")
+
 def validate_input(username, repo, permission):
     valid_permissions = ['pull', 'push', 'admin']
     if not username or not repo or not permission:
@@ -63,9 +65,9 @@ def add_user_to_repo(username, repo, permission):
     except requests.RequestException as e:
         logging.error(f"Failed to add {username} to {repo}. Error: {str(e)}")
 
-def process_csv(csv_file):
+def main():
     try:
-        with open(csv_file, 'r') as file:
+        with open(CSV_FILE, 'r') as file:
             csv_reader = csv.reader(file)
             next(csv_reader)  # Skip header row
             for row in csv_reader:
@@ -79,11 +81,8 @@ def process_csv(csv_file):
                     except Exception as e:
                         logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
     except FileNotFoundError:
-        logging.error(f"CSV file not found: {csv_file}")
+        logging.error(f"CSV file not found: {CSV_FILE}")
         sys.exit(1)
-
-def main():
-    process_csv(CSV_FILE)
 
 if __name__ == "__main__":
     main()
