@@ -23,7 +23,7 @@ if not CSV_FILE:
 logging.info(f"CSV file path: {CSV_FILE}")
 
 def validate_input(username, org, role):
-    valid_roles = ['admin', 'direct_member', 'billing_manager']
+    valid_roles = ['admin', 'contributor', 'member']
     if not username or not org or not role:
         raise ValueError("Username, organization, and role must be provided")
     if role not in valid_roles:
