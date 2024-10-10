@@ -1,0 +1,27 @@
+name: User Onboarding
+description: Onboard users to repositories and organizations
+title: "[Onboarding]: "
+labels: ["onboarding"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to onboard users to repositories and organizations.
+        
+        After creating the issue, add a comment with the onboarding commands.
+        
+        For repositories:
+        /onboard repos
+        
+        For organizations:
+        /onboard orgs
+        
+        The CSV file (data/users.csv) should be updated with the user information before running the commands.
+  - type: input
+    id: requester
+    attributes:
+      label: Requester
+      description: Who is requesting this onboarding?
+      placeholder: '@username'
+    validations:
+      required: true
