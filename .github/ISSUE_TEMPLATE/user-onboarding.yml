@@ -16,7 +16,7 @@ body:
         For organizations:
         /onboard orgs data/users.csv
         
-        The CSV file should be updated with the user information before running the commands.
+        Make sure the CSV file exists in the repository before running the command.
   - type: input
     id: requester
     attributes:
