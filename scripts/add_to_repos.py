@@ -9,29 +9,22 @@ import csv
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 GITHUB_API_URL = "https://api.github.com"
-TOKEN = os.getenv('PERSONAL_ACCESS_TOKEN')
+TOKEN = os.getenv('GITHUB_TOKEN')
 CSV_FILE = os.getenv('CSV_FILE')
-GITHUB_REPO = os.getenv('GITHUB_REPO')
 
 if not TOKEN:
-    logging.error("PERSONAL_ACCESS_TOKEN not found. Please set the PERSONAL_ACCESS_TOKEN environment variable.")
+    logging.error("GITHUB_TOKEN not found. Please set the GITHUB_TOKEN environment variable.")
     sys.exit(1)
 
 if not CSV_FILE:
     logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
     sys.exit(1)
 
-if not GITHUB_REPO:
-    logging.error("GITHUB_REPO not found. Please set the GITHUB_REPO environment variable.")
-    sys.exit(1)
-
-logging.info(f"CSV file path: {CSV_FILE}")
-
 def validate_input(username, repo, permission):
-    valid_permissions = ['pull', 'push', 'admin', 'contributor']
+    valid_permissions = ['pull', 'push', 'admin']
     if not username or not repo or not permission:
         raise ValueError("Username, repository, and permission must be provided")
-    if permission.lower() not in valid_permissions:
+    if permission not in valid_permissions:
         raise ValueError(f"Invalid permission. Must be one of {valid_permissions}")
 
 def make_request(url, method='get', data=None, max_retries=3):
@@ -63,36 +56,36 @@ def make_request(url, method='get', data=None, max_retries=3):
 
 def add_user_to_repo(username, repo, permission):
     url = f"{GITHUB_API_URL}/repos/{repo}/collaborators/{username}"
-    
-    # Map 'contributor' to 'push' permission
-    if permission.lower() == 'contributor':
-        permission = 'push'
-    
-    data = {"permission": permission.lower()}
+    data = {"permission": permission}
     try:
         response = make_request(url, method='put', data=data)
         logging.info(f"Successfully added {username} to {repo} with {permission} permission")
     except requests.RequestException as e:
         logging.error(f"Failed to add {username} to {repo}. Error: {str(e)}")
 
-def main():
-    try:
-        with open(CSV_FILE, 'r') as file:
-            csv_reader = csv.reader(file)
-            next(csv_reader)  # Skip header row
-            for row in csv_reader:
-                if len(row) == 4:
-                    mannequin_user, mannequin_id, target_user, role = row
+def process_csv(csv_file):
+    with open(csv_file, 'r') as file:
+        csv_reader = csv.reader(file)
+        next(csv_reader)  # Skip header row
+        for row in csv_reader:
+            if len(row) == 5:
+                mannequin_user, mannequin_id, target_user, role, target = row
+                if '/' in target:  # It's a repo
                     try:
-                        validate_input(target_user, GITHUB_REPO, role)
-                        add_user_to_repo(target_user, GITHUB_REPO, role)
+                        validate_input(target_user, target, role)
+                        add_user_to_repo(target_user, target, role)
                     except ValueError as e:
                         logging.error(f"Invalid input: {row}. Error: {str(e)}")
                     except Exception as e:
                         logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
-    except FileNotFoundError:
-        logging.error(f"CSV file not found: {CSV_FILE}")
+
+def main():
+    csv_file = os.getenv('CSV_FILE')
+    if not csv_file:
+        logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
         sys.exit(1)
+
+    process_csv(csv_file)
 
 if __name__ == "__main__":
     main()

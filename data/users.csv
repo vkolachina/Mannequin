@@ -1,3 +1,3 @@
-mannequin-user,mannequin-id,target-user,role
-mannequin-user,67890,kolachinav,contributor
-
+mannequin-user,mannequin-id,target-user,role,target
+mannequin1,12345,viswa9357,admin,GITHUB9357
+mannequin2,67890,Kolachinav,push,Vkolachina/Terraform
