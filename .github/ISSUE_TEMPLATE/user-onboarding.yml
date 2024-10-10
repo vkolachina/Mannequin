@@ -17,6 +17,9 @@ body:
         /onboard orgs data/users.csv
         
         Make sure the CSV file exists in the repository before running the command.
+        
+        Permissions for repos: pull, push, admin, contributor
+        Roles for orgs: admin, direct_member, billing_manager
   - type: input
     id: requester
     attributes:
