@@ -50,3 +50,5 @@ jobs:
       run: |
         echo "One or more onboarding processes failed. Please check the logs for details."
         exit 1
+
+    
