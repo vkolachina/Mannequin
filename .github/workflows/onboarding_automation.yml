@@ -4,6 +4,9 @@ on:
   issue_comment:
     types: [created]
 
+env:
+    ACTIONS_RUNNER_DEBUG: true
+
 jobs:
   process_command:
     runs-on: ubuntu-latest
