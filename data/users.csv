@@ -1,5 +1,5 @@
-
-mannequin-user,1231,Vkolachina,pull,Kolachinav/Test
+mannequin-user,mannequin-id,target-user,role,target
+mannequin4,1231,vkolachina,pull,Kolachinav/Test
 mannequin1,12345,viswa9357,admin,GITHUB9357
 mannequin2,67890,Kolachinav,push,Vkolachina/Terraform
-mannequin1,12345,viswa9357,admin,DEVOPS-CODERS
+mannequin5,12345,viswa9357,admin,DEVOPS-CODERS

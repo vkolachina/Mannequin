@@ -21,7 +21,7 @@ if not CSV_FILE:
     sys.exit(1)
 
 def validate_input(username, org, role):
-    valid_roles = ['admin', 'direct_member', 'billing_manager']
+    valid_roles = ['admin', 'member', 'owner']
     if not username or not org or not role:
         raise ValueError("Username, organization, and role must be provided")
     if role.lower() not in valid_roles:
