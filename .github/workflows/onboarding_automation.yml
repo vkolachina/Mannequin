@@ -31,24 +31,26 @@ jobs:
         CSV_FILE=$(echo "${{ github.event.comment.body }}" | grep -oP '/onboard \K\S+')
         echo "csv_file=$CSV_FILE" >> $GITHUB_OUTPUT
 
-    - name: Process organization additions
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        CSV_FILE: ${{ github.workspace }}/${{ steps.extract_csv.outputs.csv_file }}
+    - name: Find CSV file
+      id: find_csv
       run: |
-        python scripts/add_to_orgs.py
+        CSV_PATH=$(find ${{ github.workspace }} -name "${{ steps.extract_csv.outputs.csv_file }}" -print -quit)
+        if [ -z "$CSV_PATH" ]; then
+          echo "Error: CSV file not found in the repository"
+          exit 1
+        fi
+        echo "csv_path=$CSV_PATH" >> $GITHUB_OUTPUT
 
-    - name: Process repository additions
+    - name: Process mannequins
       env:
         GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        CSV_FILE: ${{ github.workspace }}/${{ steps.extract_csv.outputs.csv_file }}
+        CSV_FILE: ${{ steps.find_csv.outputs.csv_path }}
+        AD_API_URL: ${{ secrets.AD_API_URL }}
       run: |
-        python scripts/add_to_repos.py
+        python scripts/process_mannequins.py
 
     - name: Check for failures
       if: failure()
       run: |
         echo "One or more onboarding processes failed. Please check the logs for details."
         exit 1
-
-    

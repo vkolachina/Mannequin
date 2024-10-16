@@ -10,15 +10,15 @@ body:
         
         After creating the issue, add a comment with the onboarding command:
         
-        /onboard data/users.csv
+        /onboard <filename>.csv
         
+        Replace <filename> with the name of your CSV file.
         Ensure the CSV file exists in the repository with the correct format:
-        mannequin-user,mannequin-id,target-user,role,target
+        mannequin_username,mannequin_id,role,target
         
         Where 'target' is either an organization name or 'owner/repo' for repositories.
         
-        Permissions for repos: pull, push, admin
-        Roles for orgs: admin, direct_member, billing_manager
+        Roles: Admin, Write, Read (these will be mapped to appropriate GitHub permissions)
   - type: input
     id: requester
     attributes:
