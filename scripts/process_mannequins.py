@@ -3,7 +3,6 @@ import sys
 import csv
 import logging
 import requests
-import json
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -81,31 +80,28 @@ def validate_csv(csv_file):
     with open(csv_file, 'r') as file:
         csv_reader = csv.reader(file)
         header = next(csv_reader, None)
-        if header != ['mannequin_username', 'mannequin_id', 'role', 'target']:
+        if header != ['mannequin-user', 'mannequin-id', 'target-user', 'role']:
             raise ValueError("CSV file does not have the correct header format")
 
 def process_mannequins(csv_file):
     with open(csv_file, 'r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            mannequin_username = row['mannequin_username']
-            target = row['target']
+            mannequin_username = row['mannequin-user']
+            target_user = row['target-user']
             mannequin_role = row['role']
 
-            # Get the AD email for the mannequin user
-            ad_email = get_ad_email(mannequin_username)
+            # Get the AD email for the target user
+            ad_email = get_ad_email(target_user)
             if not ad_email:
-                logging.error(f"Could not find AD email for {mannequin_username}")
+                logging.error(f"Could not find AD email for {target_user}")
                 continue
 
             # Determine the appropriate role/permission
             github_role = determine_role(mannequin_role)
 
-            # Add user to org or repo based on the target
-            if '/' in target:  # It's a repo
-                add_user_to_repo(ad_email, target, github_role)
-            else:  # It's an org
-                add_user_to_org(ad_email, target, github_role)
+            # Add user to org; replace "YOUR_ORG_NAME" with the actual organization name
+            add_user_to_org(ad_email, "YOUR_ORG_NAME", github_role)
 
 def main():
     if not TOKEN:
