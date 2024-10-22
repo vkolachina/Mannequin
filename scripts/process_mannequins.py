@@ -3,73 +3,89 @@ import sys
 import csv
 import logging
 import requests
-import json
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+TOKEN = os.getenv('GITHUB_TOKEN')
 CSV_FILE = os.getenv('CSV_FILE')
 
-def determine_role(mannequin_role):
-    role_mapping = {
-        'Admin': 'admin',
-        'Write': 'push',
-        'Read': 'pull',
-    }
-    return role_mapping.get(mannequin_role, 'pull')
+if not TOKEN:
+    logging.error("GITHUB_TOKEN not found. Please set the GITHUB_TOKEN environment variable.")
+    sys.exit(1)
 
-def make_github_request(url, method='POST', data=None):
+if not CSV_FILE:
+    logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
+    sys.exit(1)
+
+def validate_input(username, target, role):
+    valid_roles = ['admin', 'member', 'owner', 'pull', 'push', 'admin']
+    if not username or not target or not role:
+        raise ValueError("Username, target, and role must be provided")
+    if role.lower() not in valid_roles:
+        raise ValueError(f"Invalid role. Must be one of {valid_roles}")
+
+def make_request(url, method='get', data=None, max_retries=3):
     headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
+        "Authorization": f"token {TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
-    try:
-        if method == 'POST':
-            response = requests.post(url, headers=headers, json=data)
-        elif method == 'PUT':
-            response = requests.put(url, headers=headers, json=data)
-        else:
-            response = requests.get(url, headers=headers)
-        
-        response.raise_for_status()
-        return response
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Request failed: {e}")
-        if response:
-            logging.error(f"Response content: {response.text}")
-        return None
+    for attempt in range(max_retries):
+        try:
+            if method == 'get':
+                response = requests.get(url, headers=headers)
+            elif method == 'post':
+                response = requests.post(url, headers=headers, json=data)
+            elif method == 'put':
+                response = requests.put(url, headers=headers, json=data)
+            
+            if response.status_code == 403 and 'rate limit' in response.text.lower():
+                reset_time = int(response.headers.get('X-RateLimit-Reset', 0))
+                sleep_time = max(reset_time - time.time(), 0) + 1
+                logging.warning(f"Rate limit hit. Sleeping for {sleep_time} seconds.")
+                time.sleep(sleep_time)
+                continue
+            
+            response.raise_for_status()
+            return response
+        except requests.RequestException as e:
+            if attempt == max_retries - 1:
+                logging.error(f"Request failed after {max_retries} attempts. Error: {str(e)}")
+                raise
+            logging.warning(f"Request failed. Retrying... (Attempt {attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)  # Exponential backoff
 
-def add_user_to_org(target_id, org, role):
+def add_user_to_org(username, org, role):
     url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
     data = {
-        "invitee_id": int(target_id),
+        "invitee_id": get_user_id(username),
         "role": role.lower()
     }
-    response = make_github_request(url, method='POST', data=data)
-    if response and response.status_code == 201:
-        logging.info(f"Successfully invited user with ID {target_id} to {org} with {role} role")
-    elif response:
-        error_data = json.loads(response.text)
-        logging.error(f"Failed to invite user with ID {target_id} to {org}. Status code: {response.status_code}")
-        logging.error(f"Error message: {error_data.get('message', 'Unknown error')}")
-        for error in error_data.get('errors', []):
-            logging.error(f"Error detail: {error}")
+    try:
+        response = make_request(url, method='post', data=data)
+        logging.info(f"Successfully invited {username} to {org} with {role} role")
+    except requests.RequestException as e:
+        logging.error(f"Failed to invite {username} to {org}. Error: {str(e)}")
 
-def add_user_to_repo(target_id, repo, permission):
-    owner, repo_name = repo.split('/')
-    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{target_id}"
+def add_user_to_repo(username, repo, permission):
+    url = f"{GITHUB_API_URL}/repos/{repo}/collaborators/{username}"
     data = {"permission": permission.lower()}
-    response = make_github_request(url, method='PUT', data=data)
-    if response and response.status_code == 201:
-        logging.info(f"Successfully added user with ID {target_id} to {repo} with {permission} permission")
-    elif response:
-        error_data = json.loads(response.text)
-        logging.error(f"Failed to add user with ID {target_id} to {repo}. Status code: {response.status_code}")
-        logging.error(f"Error message: {error_data.get('message', 'Unknown error')}")
-        for error in error_data.get('errors', []):
-            logging.error(f"Error detail: {error}")
+    try:
+        response = make_request(url, method='put', data=data)
+        logging.info(f"Successfully added {username} to {repo} with {permission} permission")
+    except requests.RequestException as e:
+        logging.error(f"Failed to add {username} to {repo}. Error: {str(e)}")
+
+def get_user_id(username):
+    url = f"{GITHUB_API_URL}/users/{username}"
+    try:
+        response = make_request(url)
+        return response.json()['id']
+    except requests.RequestException as e:
+        logging.error(f"Failed to get user ID for {username}. Error: {str(e)}")
+        raise
 
 def validate_csv(csv_file):
     if not os.path.exists(csv_file):
@@ -86,35 +102,27 @@ def process_mannequins(csv_file):
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             mannequin_username = row['mannequin_username']
-            mannequin_id = row['mannequin_id']
+            target_user = row['mannequin_id']  # Using mannequin_id as target_user
             role = row['role']
             target = row['target']
 
-            github_role = determine_role(role)
-
-            logging.info(f"Processing user: {mannequin_username} (ID: {mannequin_id})")
-            if '/' in target:
-                add_user_to_repo(mannequin_id, target, github_role)
-            else:
-                add_user_to_org(mannequin_id, target, github_role)
+            try:
+                validate_input(target_user, target, role)
+                if '/' in target:  # It's a repo
+                    add_user_to_repo(target_user, target, role)
+                else:  # It's an org
+                    add_user_to_org(target_user, target, role)
+            except ValueError as e:
+                logging.error(f"Invalid input: {row}. Error: {str(e)}")
+            except Exception as e:
+                logging.error(f"Unexpected error processing: {row}. Error: {str(e)}")
 
 def main():
-    if not GITHUB_TOKEN:
-        logging.error("GITHUB_TOKEN not found. Please set the GITHUB_TOKEN environment variable.")
-        sys.exit(1)
-
-    if not CSV_FILE:
-        logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
-        sys.exit(1)
-
     try:
         validate_csv(CSV_FILE)
         process_mannequins(CSV_FILE)
     except (FileNotFoundError, ValueError) as e:
         logging.error(str(e))
-        sys.exit(1)
-    except Exception as e:
-        logging.error(f"An unexpected error occurred: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
