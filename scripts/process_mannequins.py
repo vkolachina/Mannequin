@@ -33,10 +33,10 @@ def determine_role(mannequin_role):
     role_mapping = get_github_roles()
     return role_mapping.get(mannequin_role, 'pull')  # Default to 'pull' if role is not recognized
 
-def validate_input(username, target, role):
+def validate_input(identifier, target, role):
     valid_roles = set(get_github_roles().keys())
-    if not username or not target or not role:
-        raise ValueError("Username, target, and role must be provided")
+    if not identifier or not target or not role:
+        raise ValueError("Identifier, target, and role must be provided")
     if role not in valid_roles:
         raise ValueError(f"Invalid role. Must be one of {list(valid_roles)}")
 
@@ -70,35 +70,54 @@ def make_request(url, method='get', data=None, max_retries=3):
             logging.warning(f"Request failed. Retrying... (Attempt {attempt + 1}/{max_retries})")
             time.sleep(2 ** attempt)  # Exponential backoff
 
-def add_user_to_org(username, org, role):
+def get_user_id(identifier):
+    if '@' in identifier:
+        url = f"{GITHUB_API_URL}/search/users?q={identifier}"
+        try:
+            response = make_request(url)
+            users = response.json().get('items', [])
+            if users:
+                return users[0]['id']
+            else:
+                logging.error(f"No user found with email: {identifier}")
+                return None
+        except requests.RequestException as e:
+            logging.error(f"Failed to get user ID for email {identifier}. Error: {str(e)}")
+            return None
+    else:
+        url = f"{GITHUB_API_URL}/users/{identifier}"
+        try:
+            response = make_request(url)
+            return response.json()['id']
+        except requests.RequestException as e:
+            logging.error(f"Failed to get user ID for username {identifier}. Error: {str(e)}")
+            return None
+
+def add_user_to_org(identifier, org, role):
+    user_id = get_user_id(identifier)
+    if user_id is None:
+        logging.error(f"Failed to add {identifier} to {org}. Unable to find user.")
+        return
+
     url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
     data = {
-        "invitee_id": get_user_id(username),
+        "invitee_id": user_id,
         "role": role.lower()
     }
     try:
         response = make_request(url, method='post', data=data)
-        logging.info(f"Successfully invited {username} to {org} with {role} role")
+        logging.info(f"Successfully invited {identifier} to {org} with {role} role")
     except requests.RequestException as e:
-        logging.error(f"Failed to invite {username} to {org}. Error: {str(e)}")
+        logging.error(f"Failed to invite {identifier} to {org}. Error: {str(e)}")
 
-def add_user_to_repo(username, repo, permission):
-    url = f"{GITHUB_API_URL}/repos/{repo}/collaborators/{username}"
+def add_user_to_repo(identifier, repo, permission):
+    url = f"{GITHUB_API_URL}/repos/{repo}/collaborators/{identifier}"
     data = {"permission": permission.lower()}
     try:
         response = make_request(url, method='put', data=data)
-        logging.info(f"Successfully added {username} to {repo} with {permission} permission")
+        logging.info(f"Successfully added {identifier} to {repo} with {permission} permission")
     except requests.RequestException as e:
-        logging.error(f"Failed to add {username} to {repo}. Error: {str(e)}")
-
-def get_user_id(username):
-    url = f"{GITHUB_API_URL}/users/{username}"
-    try:
-        response = make_request(url)
-        return response.json()['id']
-    except requests.RequestException as e:
-        logging.error(f"Failed to get user ID for {username}. Error: {str(e)}")
-        raise
+        logging.error(f"Failed to add {identifier} to {repo}. Error: {str(e)}")
 
 def validate_csv(csv_file):
     if not os.path.exists(csv_file):
@@ -115,17 +134,17 @@ def process_mannequins(csv_file):
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             mannequin_username = row['mannequin_username']
-            target_user = row['mannequin_id']  # Using mannequin_id as target_user
+            identifier = row['mannequin_id']  # This can now be email or username
             role = row['role']
             target = row['target']
 
             try:
-                validate_input(target_user, target, role)
+                validate_input(identifier, target, role)
                 github_role = determine_role(role)
                 if '/' in target:  # It's a repo
-                    add_user_to_repo(target_user, target, github_role)
+                    add_user_to_repo(identifier, target, github_role)
                 else:  # It's an org
-                    add_user_to_org(target_user, target, github_role)
+                    add_user_to_org(identifier, target, github_role)
             except ValueError as e:
                 logging.error(f"Invalid input: {row}. Error: {str(e)}")
             except Exception as e:
