@@ -1,5 +1,5 @@
 mannequin_username,mannequin_id,role,target
-mannequin1,12345,Admin,GITHUB9357
+Kolachinav,12345,Admin,GITHUB9357
 mannequin2,67890,Write,Vkolachina/Terraform
 mannequin4,1231,Read,vkolachina/Ops
 mannequin5,12345,Admin,DEVOPS-CODERS
