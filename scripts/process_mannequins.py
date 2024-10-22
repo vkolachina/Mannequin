@@ -20,12 +20,25 @@ if not CSV_FILE:
     logging.error("CSV_FILE not found. Please set the CSV_FILE environment variable.")
     sys.exit(1)
 
+def get_github_roles():
+    return {
+        'Admin': 'admin',
+        'Member': 'member',
+        'Owner': 'owner',
+        'Read': 'pull',
+        'Write': 'push'
+    }
+
+def determine_role(mannequin_role):
+    role_mapping = get_github_roles()
+    return role_mapping.get(mannequin_role, 'pull')  # Default to 'pull' if role is not recognized
+
 def validate_input(username, target, role):
-    valid_roles = ['admin', 'member', 'owner', 'pull', 'push', 'admin']
+    valid_roles = set(get_github_roles().keys())
     if not username or not target or not role:
         raise ValueError("Username, target, and role must be provided")
-    if role.lower() not in valid_roles:
-        raise ValueError(f"Invalid role. Must be one of {valid_roles}")
+    if role not in valid_roles:
+        raise ValueError(f"Invalid role. Must be one of {list(valid_roles)}")
 
 def make_request(url, method='get', data=None, max_retries=3):
     headers = {
@@ -108,10 +121,11 @@ def process_mannequins(csv_file):
 
             try:
                 validate_input(target_user, target, role)
+                github_role = determine_role(role)
                 if '/' in target:  # It's a repo
-                    add_user_to_repo(target_user, target, role)
+                    add_user_to_repo(target_user, target, github_role)
                 else:  # It's an org
-                    add_user_to_org(target_user, target, role)
+                    add_user_to_org(target_user, target, github_role)
             except ValueError as e:
                 logging.error(f"Invalid input: {row}. Error: {str(e)}")
             except Exception as e:
