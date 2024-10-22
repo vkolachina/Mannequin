@@ -8,24 +8,8 @@ import requests
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 GITHUB_API_URL = "https://api.github.com"
-OKTA_API_URL = os.getenv('OKTA_API_URL')  # e.g., "https://your-domain.okta.com/api/v1"
-OKTA_API_TOKEN = os.getenv('OKTA_API_TOKEN')
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 CSV_FILE = os.getenv('CSV_FILE')
-
-def get_okta_email(username):
-    url = f"{OKTA_API_URL}/users/{username}"
-    headers = {
-        "Authorization": f"SSWS {OKTA_API_TOKEN}",
-        "Accept": "application/json"
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        user_data = response.json()
-        return user_data.get('profile', {}).get('email')
-    else:
-        logging.error(f"Failed to get Okta user data for {username}. Status code: {response.status_code}")
-        return None
 
 def determine_role(mannequin_role):
     # Map mannequin roles to GitHub roles/permissions
@@ -33,29 +17,28 @@ def determine_role(mannequin_role):
         'Admin': 'admin',
         'Write': 'push',
         'Read': 'pull',
-        # Add more mappings as needed
     }
     return role_mapping.get(mannequin_role, 'pull')  # Default to 'pull' if role is not recognized
 
-def add_user_to_org(username, org, role):
+def add_user_to_org(target_id, org, role):
     url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
     data = {
-        "invitee_id": get_user_id(username),
+        "invitee_id": target_id,
         "role": role.lower()
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 201:
-        logging.info(f"Successfully invited {username} to {org} with {role} role")
+        logging.info(f"Successfully invited user with ID {target_id} to {org} with {role} role")
     else:
-        logging.error(f"Failed to invite {username} to {org}. Status code: {response.status_code}")
+        logging.error(f"Failed to invite user with ID {target_id} to {org}. Status code: {response.status_code}")
 
-def add_user_to_repo(username, repo, permission):
+def add_user_to_repo(target_id, repo, permission):
     owner, repo_name = repo.split('/')
-    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{username}"
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{target_id}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
@@ -63,22 +46,9 @@ def add_user_to_repo(username, repo, permission):
     data = {"permission": permission.lower()}
     response = requests.put(url, headers=headers, json=data)
     if response.status_code == 201:
-        logging.info(f"Successfully added {username} to {repo} with {permission} permission")
+        logging.info(f"Successfully added user with ID {target_id} to {repo} with {permission} permission")
     else:
-        logging.error(f"Failed to add {username} to {repo}. Status code: {response.status_code}")
-
-def get_user_id(username):
-    url = f"{GITHUB_API_URL}/users/{username}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json()['id']
-    else:
-        logging.error(f"Failed to get user ID for {username}. Status code: {response.status_code}")
-        return None
+        logging.error(f"Failed to add user with ID {target_id} to {repo}. Status code: {response.status_code}")
 
 def validate_csv(csv_file):
     if not os.path.exists(csv_file):
@@ -87,36 +57,30 @@ def validate_csv(csv_file):
     with open(csv_file, 'r') as file:
         csv_reader = csv.reader(file)
         header = next(csv_reader, None)
-        if header != ['mannequin-user', 'mannequin-id', 'target-user', 'role']:
+        if header != ['mannequin_username', 'mannequin_id', 'role', 'target']:
             raise ValueError("CSV file does not have the correct header format")
 
 def process_mannequins(csv_file):
     with open(csv_file, 'r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            mannequin_username = row['mannequin-user']
-            target_user = row['target-user']
-            mannequin_role = row['role']
-
-            # Get the Okta email for the target user
-            okta_email = get_okta_email(target_user)
-            if not okta_email:
-                logging.error(f"Could not find Okta email for {target_user}")
-                continue
+            mannequin_username = row['mannequin_username']
+            mannequin_id = row['mannequin_id']
+            role = row['role']
+            target = row['target']
 
             # Determine the appropriate role/permission
-            github_role = determine_role(mannequin_role)
+            github_role = determine_role(role)
 
-            # Add user to org; replace "YOUR_ORG_NAME" with the actual organization name
-            add_user_to_org(okta_email, "YOUR_ORG_NAME", github_role)
+            # Add user to org or repo based on the target
+            if '/' in target:  # It's a repo
+                add_user_to_repo(mannequin_id, target, github_role)
+            else:  # It's an org
+                add_user_to_org(mannequin_id, target, github_role)
 
 def main():
     if not GITHUB_TOKEN:
         logging.error("GITHUB_TOKEN not found. Please set the GITHUB_TOKEN environment variable.")
-        sys.exit(1)
-
-    if not OKTA_API_TOKEN:
-        logging.error("OKTA_API_TOKEN not found. Please set the OKTA_API_TOKEN environment variable.")
         sys.exit(1)
 
     if not CSV_FILE:
