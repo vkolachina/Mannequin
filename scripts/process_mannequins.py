@@ -3,6 +3,7 @@ import sys
 import csv
 import logging
 import requests
+import json
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,43 +13,63 @@ GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 CSV_FILE = os.getenv('CSV_FILE')
 
 def determine_role(mannequin_role):
-    # Map mannequin roles to GitHub roles/permissions
     role_mapping = {
         'Admin': 'admin',
         'Write': 'push',
         'Read': 'pull',
     }
-    return role_mapping.get(mannequin_role, 'pull')  # Default to 'pull' if role is not recognized
+    return role_mapping.get(mannequin_role, 'pull')
 
-def add_user_to_org(target_id, org, role):
-    url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
+def make_github_request(url, method='POST', data=None):
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
+    try:
+        if method == 'POST':
+            response = requests.post(url, headers=headers, json=data)
+        elif method == 'PUT':
+            response = requests.put(url, headers=headers, json=data)
+        else:
+            response = requests.get(url, headers=headers)
+        
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Request failed: {e}")
+        if response:
+            logging.error(f"Response content: {response.text}")
+        return None
+
+def add_user_to_org(target_id, org, role):
+    url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
     data = {
-        "invitee_id": target_id,
+        "invitee_id": int(target_id),
         "role": role.lower()
     }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 201:
+    response = make_github_request(url, method='POST', data=data)
+    if response and response.status_code == 201:
         logging.info(f"Successfully invited user with ID {target_id} to {org} with {role} role")
-    else:
+    elif response:
+        error_data = json.loads(response.text)
         logging.error(f"Failed to invite user with ID {target_id} to {org}. Status code: {response.status_code}")
+        logging.error(f"Error message: {error_data.get('message', 'Unknown error')}")
+        for error in error_data.get('errors', []):
+            logging.error(f"Error detail: {error}")
 
 def add_user_to_repo(target_id, repo, permission):
     owner, repo_name = repo.split('/')
     url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{target_id}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
     data = {"permission": permission.lower()}
-    response = requests.put(url, headers=headers, json=data)
-    if response.status_code == 201:
+    response = make_github_request(url, method='PUT', data=data)
+    if response and response.status_code == 201:
         logging.info(f"Successfully added user with ID {target_id} to {repo} with {permission} permission")
-    else:
+    elif response:
+        error_data = json.loads(response.text)
         logging.error(f"Failed to add user with ID {target_id} to {repo}. Status code: {response.status_code}")
+        logging.error(f"Error message: {error_data.get('message', 'Unknown error')}")
+        for error in error_data.get('errors', []):
+            logging.error(f"Error detail: {error}")
 
 def validate_csv(csv_file):
     if not os.path.exists(csv_file):
@@ -69,13 +90,12 @@ def process_mannequins(csv_file):
             role = row['role']
             target = row['target']
 
-            # Determine the appropriate role/permission
             github_role = determine_role(role)
 
-            # Add user to org or repo based on the target
-            if '/' in target:  # It's a repo
+            logging.info(f"Processing user: {mannequin_username} (ID: {mannequin_id})")
+            if '/' in target:
                 add_user_to_repo(mannequin_id, target, github_role)
-            else:  # It's an org
+            else:
                 add_user_to_org(mannequin_id, target, github_role)
 
 def main():
@@ -92,6 +112,9 @@ def main():
         process_mannequins(CSV_FILE)
     except (FileNotFoundError, ValueError) as e:
         logging.error(str(e))
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
