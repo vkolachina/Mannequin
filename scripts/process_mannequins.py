@@ -79,8 +79,8 @@ def get_user_id(identifier):
             if users:
                 return users[0]['id']
             else:
-                logging.error(f"No user found with email: {identifier}")
-                return None
+                logging.warning(f"No user found with email: {identifier}. Trying as username.")
+                return get_user_id(identifier.split('@')[0])  # Try with the part before @
         except requests.RequestException as e:
             logging.error(f"Failed to get user ID for email {identifier}. Error: {str(e)}")
             return None
