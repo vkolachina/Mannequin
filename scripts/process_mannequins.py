@@ -174,7 +174,6 @@
 # if __name__ == "__main__":
 #     main()
 
-
 import os
 import sys
 import csv
@@ -203,7 +202,8 @@ def get_github_roles():
         'Member': 'member',
         'Owner': 'owner',
         'Read': 'pull',
-        'Write': 'push'
+        'Write': 'push',
+        'Contributor': 'pull'
     }
 
 def determine_role(mannequin_role):
@@ -270,32 +270,30 @@ def get_user_id(identifier):
             logging.error(f"Failed to get user ID for username {identifier}. Error: {str(e)}")
             return None
 
-def add_user_to_org(identifier, org, role):
+def add_user_to_target(identifier, target, role):
     user_id = get_user_id(identifier)
     if user_id is None:
-        logging.error(f"Failed to add {identifier} to {org}. Unable to find user.")
+        logging.error(f"Failed to add {identifier} to {target}. Unable to find user.")
         return
 
-    url = f"{GITHUB_API_URL}/orgs/{org}/invitations"
-    data = {
-        "invitee_id": user_id,
-        "role": role.lower()
-    }
-    try:
-        response = make_request(url, method='post', data=data)
-        logging.info(f"Successfully invited {identifier} to {org} with {role} role")
-    except requests.RequestException as e:
-        logging.error(f"Failed to invite {identifier} to {org}. Error: {str(e)}")
+    if '/' in target:  # It's a repo
+        owner, repo_name = target.split('/')
+        url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{requests.utils.quote(identifier)}"
+        data = {"permission": role.lower()}
+        method = 'put'
+    else:  # It's an org
+        url = f"{GITHUB_API_URL}/orgs/{target}/invitations"
+        data = {
+            "invitee_id": user_id,
+            "role": "admin" if role.lower() == 'admin' else 'member'
+        }
+        method = 'post'
 
-def add_user_to_repo(identifier, repo, permission):
-    owner, repo_name = repo.split('/')
-    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/collaborators/{requests.utils.quote(identifier)}"
-    data = {"permission": permission.lower()}
     try:
-        response = make_request(url, method='put', data=data)
-        logging.info(f"Successfully added {identifier} to {repo} with {permission} permission")
+        response = make_request(url, method=method, data=data)
+        logging.info(f"Successfully added {identifier} to {target} with {role} role")
     except requests.RequestException as e:
-        logging.error(f"Failed to add {identifier} to {repo}. Error: {str(e)}")
+        logging.error(f"Failed to add {identifier} to {target}. Error: {str(e)}")
 
 def validate_csv(csv_file):
     if not os.path.exists(csv_file):
@@ -319,10 +317,7 @@ def process_mannequins(csv_file):
             try:
                 validate_input(identifier, target, role)
                 github_role = determine_role(role)
-                if '/' in target:  # It's a repo
-                    add_user_to_repo(identifier, target, github_role)
-                else:  # It's an org
-                    add_user_to_org(identifier, target, github_role)
+                add_user_to_target(identifier, target, github_role)
             except ValueError as e:
                 logging.error(f"Invalid input: {row}. Error: {str(e)}")
             except Exception as e:
