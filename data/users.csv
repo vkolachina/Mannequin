@@ -2,6 +2,6 @@ mannequin_username,mannequin_id,role,target
 man1,itsmek.viswa@gmail.com,Admin,GITHUB9357
 mannequin2,viswa9357,Contributor,Vkolachina/Terraform
 mannequin4,kolachinav,Read,Vkolachina/Ops
-man5,viswa9357,Contributor,DEVOPS-CODERS
-man6,123456-viswa,Write,Vkolachina/Ops
+man5,viswa9357,Admin,DEVOPS-CODERS
+man6,123456-viswa,Contributor,Vkolachina/Ops
 
