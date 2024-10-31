@@ -283,9 +283,13 @@ def add_user_to_target(identifier, target, role):
         method = 'put'
     else:  # It's an org
         url = f"{GITHUB_API_URL}/orgs/{target}/invitations"
+        if role.lower() in ['admin', 'member', 'owner']:
+            org_role = role.lower()
+        else:
+            org_role = 'member'  # Default to 'member' for other roles, including 'contributor'
         data = {
             "invitee_id": user_id,
-            "role": "admin" if role.lower() == 'admin' else 'member'
+            "role": org_role
         }
         method = 'post'
 
